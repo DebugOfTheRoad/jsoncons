@@ -47,7 +47,7 @@ public:
 
     struct stack_item
     {
-        key_storage_type name_;
+        key_storage_type key_;
         Json value_;
     };
     std::vector<stack_item> stack_;
@@ -176,14 +176,27 @@ private:
         JSONCONS_ASSERT(stack_offsets_.size() > 0);
         if (stack_[stack_offsets_.back()].value_.is_object())
         {
-            size_t count = top_ - (stack_offsets_.back() + 1);
+            auto& j = stack_[stack_offsets_.back()].value_;
+            auto it = stack_.begin() + (stack_offsets_.back()+1);
+            auto end = stack_.begin() + top_;
+
+            size_t count = end - it;
+            j.reserve(count);
+            while (it != end)
+            {
+                j.try_emplace(j.object_range().end(),std::move(it->key_),std::move(it->value_));
+                ++it;
+            }
+            top_ -= count;
+
+            /*size_t count = top_ - (stack_offsets_.back() + 1);
             auto s = stack_.begin() + (stack_offsets_.back()+1);
             auto send = s + count;
             stack_[stack_offsets_.back()].value_.object_value().insert(
                 std::make_move_iterator(s),
                 std::make_move_iterator(send),
-                [](stack_item&& val){return key_value_pair_type(std::move(val.name_),std::move(val.value_));});
-            top_ -= count;
+                [](stack_item&& val){return key_value_pair_type(std::move(val.key_),std::move(val.value_));});
+            top_ -= count;*/
         }
         else
         {
@@ -205,7 +218,7 @@ private:
 
     void do_name(string_view_type name, const parsing_context&) override
     {
-        stack_[top_].name_ = key_storage_type(name.begin(),name.end(),sa_);
+        stack_[top_].key_ = key_storage_type(name.begin(),name.end(),sa_);
     }
 
     void do_string_value(string_view_type val, const parsing_context&) override
